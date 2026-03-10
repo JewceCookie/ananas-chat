@@ -1,32 +1,29 @@
-import { compare } from "bcrypt-ts";
 import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
-import Credentials from "next-auth/providers/credentials";
-import { DUMMY_PASSWORD } from "@/lib/constants";
-import { createGuestUser, getUser } from "@/lib/db/queries";
+import { createOrUpdateUser } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
-
-export type UserType = "guest" | "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      type: UserType;
+      nextcloudId: string;
+      accessToken: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     id?: string;
-    email?: string | null;
-    type: UserType;
+    nextcloudId?: string;
+    accessToken?: string;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
-    type: UserType;
+    nextcloudId: string;
+    accessToken: string;
   }
 }
 
@@ -38,46 +35,41 @@ export const {
 } = NextAuth({
   ...authConfig,
   providers: [
-    Credentials({
-      credentials: {},
-      async authorize({ email, password }: any) {
-        const users = await getUser(email);
-
-        if (users.length === 0) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const [user] = users;
-
-        if (!user.password) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const passwordsMatch = await compare(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return { ...user, type: "regular" };
+    {
+      id: "keycloak",
+      name: "Keycloak",
+      type: "oidc",
+      // Keycloak well-known endpoint: {KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}
+      issuer: `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`,
+      clientId: process.env.KEYCLOAK_CLIENT_ID,
+      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: "openid email profile",
+        },
       },
-    }),
-    Credentials({
-      id: "guest",
-      credentials: {},
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
+      profile(profile) {
+        return {
+          id: profile.sub,
+          nextcloudId: profile.sub,
+          name: profile.name ?? profile.preferred_username ?? profile.sub,
+          email: profile.email,
+        };
       },
-    }),
+    },
   ],
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }) {
+      if (user && account) {
         token.id = user.id as string;
-        token.type = user.type;
+        token.nextcloudId = user.nextcloudId as string;
+        token.accessToken = account.access_token as string;
+
+        await createOrUpdateUser({
+          nextcloudId: user.nextcloudId as string,
+          email: user.email ?? "",
+          name: user.name ?? "",
+        });
       }
 
       return token;
@@ -85,9 +77,9 @@ export const {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
-        session.user.type = token.type;
+        session.user.nextcloudId = token.nextcloudId;
+        session.user.accessToken = token.accessToken;
       }
-
       return session;
     },
   },

@@ -1,26 +1,33 @@
-import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-
 import { auth } from "@/app/(auth)/auth";
+import { putFile } from "@/lib/storage";
 
-// Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
-    .refine((file) => file.size <= 5 * 1024 * 1024, {
-      message: "File size should be less than 5MB",
+    .refine((file) => file.size <= 10 * 1024 * 1024, {
+      message: "File size should be less than 10MB",
     })
-    // Update the file type based on the kind of files you want to accept
-    .refine((file) => ["image/jpeg", "image/png"].includes(file.type), {
-      message: "File type should be JPEG or PNG",
-    }),
+    .refine(
+      (file) =>
+        [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+          "application/pdf",
+        ].includes(file.type),
+      {
+        message: "Unsupported file type",
+      }
+    ),
 });
 
 export async function POST(request: Request) {
   const session = await auth();
 
-  if (!session) {
+  if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,23 +49,17 @@ export async function POST(request: Request) {
       const errorMessage = validatedFile.error.errors
         .map((error) => error.message)
         .join(", ");
-
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
-    // Get filename from formData since Blob doesn't have name property
     const filename = (formData.get("file") as File).name;
     const fileBuffer = await file.arrayBuffer();
 
-    try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: "public",
-      });
+    const stored = await putFile(filename, fileBuffer, {
+      contentType: file.type,
+    });
 
-      return NextResponse.json(data);
-    } catch (_error) {
-      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
-    }
+    return NextResponse.json(stored);
   } catch (_error) {
     return NextResponse.json(
       { error: "Failed to process request" },

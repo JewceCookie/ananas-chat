@@ -1,5 +1,3 @@
-import { registerOTel } from "@vercel/otel";
-
 export function register() {
-  registerOTel({ serviceName: "chatbot" });
+  // Telemetry placeholder — wire up your own OpenTelemetry SDK here if needed.
 }

@@ -1,5 +1,4 @@
-// Curated list of top models from Vercel AI Gateway
-export const DEFAULT_CHAT_MODEL = "openai/gpt-4.1-mini";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini";
 
 export type ChatModel = {
   id: string;
@@ -9,62 +8,44 @@ export type ChatModel = {
 };
 
 export const chatModels: ChatModel[] = [
-  // Anthropic
   {
-    id: "anthropic/claude-haiku-4.5",
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "openai",
+    description: "Schnell und kostengünstig für einfache Aufgaben",
+  },
+  {
+    id: "openai/gpt-4o",
+    name: "GPT-4o",
+    provider: "openai",
+    description: "Leistungsstarkes OpenAI-Modell",
+  },
+  {
+    id: "anthropic/claude-haiku-4-5",
     name: "Claude Haiku 4.5",
     provider: "anthropic",
-    description: "Fast and affordable, great for everyday tasks",
-  },
-  // OpenAI
-  {
-    id: "openai/gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    provider: "openai",
-    description: "Fast and cost-effective for simple tasks",
+    description: "Schnell und erschwinglich",
   },
   {
-    id: "openai/gpt-5-mini",
-    name: "GPT-5 Mini",
-    provider: "openai",
-    description: "Most capable OpenAI model",
-  },
-  // Google
-  {
-    id: "google/gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    provider: "google",
-    description: "Ultra fast and affordable",
+    id: "anthropic/claude-sonnet-4-5",
+    name: "Claude Sonnet 4.5",
+    provider: "anthropic",
+    description: "Ausgewogenes Anthropic-Modell",
   },
   {
-    id: "google/gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
-    provider: "google",
-    description: "Most capable Google model",
-  },
-  // xAI
-  {
-    id: "xai/grok-4.1-fast-non-reasoning",
-    name: "Grok 4.1 Fast",
-    provider: "xai",
-    description: "Fast with 30K context",
-  },
-  // Reasoning models (extended thinking)
-  {
-    id: "anthropic/claude-3.7-sonnet-thinking",
-    name: "Claude 3.7 Sonnet",
-    provider: "reasoning",
-    description: "Extended thinking for complex problems",
+    id: "ollama/llama3.2",
+    name: "Llama 3.2 (lokal)",
+    provider: "ollama",
+    description: "Lokales Modell – keine API-Kosten",
   },
   {
-    id: "xai/grok-code-fast-1-thinking",
-    name: "Grok Code Fast",
-    provider: "reasoning",
-    description: "Reasoning optimized for code",
+    id: "ollama/mistral",
+    name: "Mistral (lokal)",
+    provider: "ollama",
+    description: "Lokales Mistral-Modell",
   },
 ];
 
-// Group models by provider for UI
 export const allowedModelIds = new Set(chatModels.map((m) => m.id));
 
 export const modelsByProvider = chatModels.reduce(

@@ -1,0 +1,68 @@
+{
+  "auth": {
+    "loginTitle": "Willkommen bei Ananas Chat",
+    "loginSubtitle": "Melde dich mit deinem Konto an",
+    "loginButton": "Anmelden",
+    "logoutButton": "Abmelden",
+    "notAuthenticated": "Nicht angemeldet"
+  },
+  "chat": {
+    "newChat": "Neuer Chat",
+    "placeholder": "Nachricht eingeben...",
+    "send": "Senden",
+    "thinking": "Denkt nach...",
+    "error": "Ein Fehler ist aufgetreten.",
+    "deleteChat": "Chat löschen",
+    "deleteConfirm": "Bist du sicher, dass du diesen Chat löschen möchtest?",
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "visibility": {
+      "private": "Privat",
+      "public": "Öffentlich"
+    }
+  },
+  "knowledge": {
+    "title": "Wissensbasis",
+    "description": "Wähle Nextcloud-Ordner aus, die als Kontext für den Chat verwendet werden sollen.",
+    "addFolder": "Ordner hinzufügen",
+    "removeFolder": "Ordner entfernen",
+    "reindex": "Neu indizieren",
+    "status": {
+      "pending": "Ausstehend",
+      "processing": "Wird verarbeitet",
+      "ready": "Bereit",
+      "error": "Fehler"
+    },
+    "sharedFolders": "Geteilte Ordner",
+    "myFolders": "Meine Ordner",
+    "noFolders": "Keine Ordner ausgewählt",
+    "optIn": "Für RAG aktivieren"
+  },
+  "usage": {
+    "title": "Nutzungsübersicht",
+    "totalCost": "Gesamtkosten",
+    "thisMonth": "Diesen Monat",
+    "model": "Modell",
+    "inputTokens": "Eingabe-Tokens",
+    "outputTokens": "Ausgabe-Tokens",
+    "cost": "Kosten",
+    "date": "Datum",
+    "noUsage": "Noch keine Nutzung aufgezeichnet"
+  },
+  "models": {
+    "selectModel": "Modell auswählen",
+    "provider": "Anbieter"
+  },
+  "common": {
+    "loading": "Lädt...",
+    "save": "Speichern",
+    "close": "Schließen",
+    "back": "Zurück",
+    "settings": "Einstellungen",
+    "theme": {
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    }
+  }
+}

@@ -2,7 +2,9 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  integer,
   json,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -11,10 +13,16 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+// ---------------------------------------------------------------------------
+// Core tables (from Vercel AI chatbot, adapted for OIDC auth)
+// ---------------------------------------------------------------------------
+
 export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
-  email: varchar("email", { length: 64 }).notNull(),
-  password: varchar("password", { length: 64 }),
+  nextcloudId: varchar("nextcloudId", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -33,20 +41,6 @@ export const chat = pgTable("Chat", {
 
 export type Chat = InferSelectModel<typeof chat>;
 
-// DEPRECATED: The following schema is deprecated and will be removed in the future.
-// Read the migration guide at https://chatbot.dev/docs/migration-guides/message-parts
-export const messageDeprecated = pgTable("Message", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  chatId: uuid("chatId")
-    .notNull()
-    .references(() => chat.id),
-  role: varchar("role").notNull(),
-  content: json("content").notNull(),
-  createdAt: timestamp("createdAt").notNull(),
-});
-
-export type MessageDeprecated = InferSelectModel<typeof messageDeprecated>;
-
 export const message = pgTable("Message_v2", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   chatId: uuid("chatId")
@@ -60,28 +54,6 @@ export const message = pgTable("Message_v2", {
 
 export type DBMessage = InferSelectModel<typeof message>;
 
-// DEPRECATED: The following schema is deprecated and will be removed in the future.
-// Read the migration guide at https://chatbot.dev/docs/migration-guides/message-parts
-export const voteDeprecated = pgTable(
-  "Vote",
-  {
-    chatId: uuid("chatId")
-      .notNull()
-      .references(() => chat.id),
-    messageId: uuid("messageId")
-      .notNull()
-      .references(() => messageDeprecated.id),
-    isUpvoted: boolean("isUpvoted").notNull(),
-  },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.chatId, table.messageId] }),
-    };
-  }
-);
-
-export type VoteDeprecated = InferSelectModel<typeof voteDeprecated>;
-
 export const vote = pgTable(
   "Vote_v2",
   {
@@ -93,11 +65,9 @@ export const vote = pgTable(
       .references(() => message.id),
     isUpvoted: boolean("isUpvoted").notNull(),
   },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.chatId, table.messageId] }),
-    };
-  }
+  (table) => ({
+    pk: primaryKey({ columns: [table.chatId, table.messageId] }),
+  })
 );
 
 export type Vote = InferSelectModel<typeof vote>;
@@ -116,11 +86,9 @@ export const document = pgTable(
       .notNull()
       .references(() => user.id),
   },
-  (table) => {
-    return {
-      pk: primaryKey({ columns: [table.id, table.createdAt] }),
-    };
-  }
+  (table) => ({
+    pk: primaryKey({ columns: [table.id, table.createdAt] }),
+  })
 );
 
 export type Document = InferSelectModel<typeof document>;
@@ -168,3 +136,93 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+// ---------------------------------------------------------------------------
+// Cost tracking
+// ---------------------------------------------------------------------------
+
+export const usageLog = pgTable("UsageLog", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  model: varchar("model", { length: 255 }).notNull(),
+  provider: varchar("provider", { length: 64 }).notNull(),
+  inputTokens: integer("inputTokens").notNull().default(0),
+  outputTokens: integer("outputTokens").notNull().default(0),
+  cost: numeric("cost", { precision: 12, scale: 8 }).notNull().default("0"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type UsageLog = InferSelectModel<typeof usageLog>;
+
+export const modelPricing = pgTable("ModelPricing", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  provider: varchar("provider", { length: 64 }).notNull(),
+  model: varchar("model", { length: 255 }).notNull(),
+  inputCostPer1k: numeric("inputCostPer1k", { precision: 12, scale: 8 })
+    .notNull()
+    .default("0"),
+  outputCostPer1k: numeric("outputCostPer1k", { precision: 12, scale: 8 })
+    .notNull()
+    .default("0"),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type ModelPricing = InferSelectModel<typeof modelPricing>;
+
+// ---------------------------------------------------------------------------
+// Knowledge system / RAG
+// ---------------------------------------------------------------------------
+
+export const knowledgeSource = pgTable("KnowledgeSource", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  path: text("path").notNull(),
+  shareId: varchar("shareId", { length: 255 }),
+  label: varchar("label", { length: 255 }),
+  status: varchar("status", {
+    enum: ["pending", "processing", "ready", "error"],
+  })
+    .notNull()
+    .default("pending"),
+  errorMessage: text("errorMessage"),
+  lastSyncedAt: timestamp("lastSyncedAt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type KnowledgeSource = InferSelectModel<typeof knowledgeSource>;
+
+export const documentChunk = pgTable("DocumentChunk", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  knowledgeSourceId: uuid("knowledgeSourceId")
+    .notNull()
+    .references(() => knowledgeSource.id, { onDelete: "cascade" }),
+  sourceFile: text("sourceFile").notNull(),
+  chunkIndex: integer("chunkIndex").notNull(),
+  qdrantPointId: varchar("qdrantPointId", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type DocumentChunk = InferSelectModel<typeof documentChunk>;
+
+export const processingJob = pgTable("ProcessingJob", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  type: varchar("type", {
+    enum: ["index_source", "reindex_source", "delete_source"],
+  }).notNull(),
+  payload: json("payload").notNull(),
+  status: varchar("status", {
+    enum: ["pending", "processing", "done", "failed"],
+  })
+    .notNull()
+    .default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("lastError"),
+  scheduledAt: timestamp("scheduledAt").notNull().defaultNow(),
+  processedAt: timestamp("processedAt"),
+});
+
+export type ProcessingJob = InferSelectModel<typeof processingJob>;

@@ -2,10 +2,10 @@
 
 import { ChevronUp } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,16 +18,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { guestRegex } from "@/lib/constants";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
 export function SidebarUserNav({ user }: { user: User }) {
-  const router = useRouter();
-  const { data, status } = useSession();
+  const { status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
-
-  const isGuest = guestRegex.test(data?.user?.email ?? "");
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
 
   return (
     <SidebarMenu>
@@ -39,7 +37,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                 <div className="flex flex-row gap-2">
                   <div className="size-6 animate-pulse rounded-full bg-zinc-500/30" />
                   <span className="animate-pulse rounded-md bg-zinc-500/30 text-transparent">
-                    Loading auth status
+                    {tc("loading")}
                   </span>
                 </div>
                 <div className="animate-spin text-zinc-500">
@@ -59,7 +57,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                   width={24}
                 />
                 <span className="truncate" data-testid="user-email">
-                  {isGuest ? "Guest" : user?.email}
+                  {user?.name ?? user?.email}
                 </span>
                 <ChevronUp className="ml-auto" />
               </SidebarMenuButton>
@@ -77,7 +75,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
               }
             >
-              {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+              {resolvedTheme === "light" ? tc("theme.dark") : tc("theme.light")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
@@ -87,24 +85,15 @@ export function SidebarUserNav({ user }: { user: User }) {
                   if (status === "loading") {
                     toast({
                       type: "error",
-                      description:
-                        "Checking authentication status, please try again!",
+                      description: "Checking authentication status, please try again!",
                     });
-
                     return;
                   }
-
-                  if (isGuest) {
-                    router.push("/login");
-                  } else {
-                    signOut({
-                      redirectTo: "/",
-                    });
-                  }
+                  signOut({ redirectTo: "/login" });
                 }}
                 type="button"
               >
-                {isGuest ? "Login to your account" : "Sign out"}
+                {t("logoutButton")}
               </button>
             </DropdownMenuItem>
           </DropdownMenuContent>

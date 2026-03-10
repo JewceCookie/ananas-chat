@@ -1,0 +1,68 @@
+{
+  "auth": {
+    "loginTitle": "Welcome to Ananas Chat",
+    "loginSubtitle": "Sign in with your account",
+    "loginButton": "Sign in",
+    "logoutButton": "Sign out",
+    "notAuthenticated": "Not signed in"
+  },
+  "chat": {
+    "newChat": "New Chat",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "error": "An error occurred.",
+    "deleteChat": "Delete chat",
+    "deleteConfirm": "Are you sure you want to delete this chat?",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "visibility": {
+      "private": "Private",
+      "public": "Public"
+    }
+  },
+  "knowledge": {
+    "title": "Knowledge Base",
+    "description": "Select Nextcloud folders to use as context for chat.",
+    "addFolder": "Add folder",
+    "removeFolder": "Remove folder",
+    "reindex": "Reindex",
+    "status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "ready": "Ready",
+      "error": "Error"
+    },
+    "sharedFolders": "Shared folders",
+    "myFolders": "My folders",
+    "noFolders": "No folders selected",
+    "optIn": "Enable for RAG"
+  },
+  "usage": {
+    "title": "Usage Overview",
+    "totalCost": "Total cost",
+    "thisMonth": "This month",
+    "model": "Model",
+    "inputTokens": "Input tokens",
+    "outputTokens": "Output tokens",
+    "cost": "Cost",
+    "date": "Date",
+    "noUsage": "No usage recorded yet"
+  },
+  "models": {
+    "selectModel": "Select model",
+    "provider": "Provider"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "settings": "Settings",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  }
+}

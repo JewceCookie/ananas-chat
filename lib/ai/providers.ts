@@ -1,63 +1,44 @@
-import { gateway } from "@ai-sdk/gateway";
-import {
-  customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from "ai";
+import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { customProvider } from "ai";
 import { isTestEnvironment } from "../constants";
-
-const THINKING_SUFFIX_REGEX = /-thinking$/;
-
-export const myProvider = isTestEnvironment
-  ? (() => {
-      const {
-        artifactModel,
-        chatModel,
-        reasoningModel,
-        titleModel,
-      } = require("./models.mock");
-      return customProvider({
-        languageModels: {
-          "chat-model": chatModel,
-          "chat-model-reasoning": reasoningModel,
-          "title-model": titleModel,
-          "artifact-model": artifactModel,
-        },
-      });
-    })()
-  : null;
+import { resolveModel } from "./registry";
 
 export function getLanguageModel(modelId: string) {
-  if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel(modelId);
-  }
-
-  const isReasoningModel =
-    modelId.endsWith("-thinking") ||
-    (modelId.includes("reasoning") && !modelId.includes("non-reasoning"));
-
-  if (isReasoningModel) {
-    const gatewayModelId = modelId.replace(THINKING_SUFFIX_REGEX, "");
-
-    return wrapLanguageModel({
-      model: gateway.languageModel(gatewayModelId),
-      middleware: extractReasoningMiddleware({ tagName: "thinking" }),
+  if (isTestEnvironment) {
+    const { artifactModel, chatModel, reasoningModel, titleModel } =
+      // biome-ignore lint/style/noCommonJs: test mocks use CJS
+      require("./models.mock");
+    const testProvider = customProvider({
+      languageModels: {
+        "chat-model": chatModel,
+        "chat-model-reasoning": reasoningModel,
+        "title-model": titleModel,
+        "artifact-model": artifactModel,
+      },
     });
+    return testProvider.languageModel(modelId);
   }
 
-  return gateway.languageModel(modelId);
+  return resolveModel(modelId);
 }
 
 export function getTitleModel() {
-  if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel("title-model");
+  if (isTestEnvironment) {
+    const { titleModel } = require("./models.mock");
+    return customProvider({ languageModels: { "title-model": titleModel } }).languageModel("title-model");
   }
-  return gateway.languageModel("google/gemini-2.5-flash-lite");
+  return openai("gpt-4o-mini");
 }
 
 export function getArtifactModel() {
-  if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel("artifact-model");
+  if (isTestEnvironment) {
+    const { artifactModel } = require("./models.mock");
+    return customProvider({ languageModels: { "artifact-model": artifactModel } }).languageModel("artifact-model");
   }
-  return gateway.languageModel("anthropic/claude-haiku-4.5");
+  return anthropic("claude-haiku-4-5");
+}
+
+export function getEmbeddingModel() {
+  return openai.embedding("text-embedding-3-small");
 }

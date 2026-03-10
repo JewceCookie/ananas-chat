@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   lt,
+  sum,
   type SQL,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -17,65 +18,73 @@ import postgres from "postgres";
 import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatbotError } from "../errors";
-import { generateUUID } from "../utils";
 import {
   type Chat,
   chat,
   type DBMessage,
   document,
+  documentChunk,
+  knowledgeSource,
   message,
+  modelPricing,
+  processingJob,
   type Suggestion,
   stream,
   suggestion,
   type User,
+  usageLog,
   user,
   vote,
 } from "./schema";
-import { generateHashedPassword } from "./utils";
-
-// Optionally, if not using email/pass login, you can
-// use the Drizzle adapter for Auth.js / NextAuth
-// https://authjs.dev/reference/adapter/drizzle
 
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
 const db = drizzle(client);
 
-export async function getUser(email: string): Promise<User[]> {
+// ---------------------------------------------------------------------------
+// User (OIDC — no passwords)
+// ---------------------------------------------------------------------------
+
+export async function createOrUpdateUser({
+  nextcloudId,
+  email,
+  name,
+}: {
+  nextcloudId: string;
+  email: string;
+  name: string;
+}): Promise<User> {
   try {
-    return await db.select().from(user).where(eq(user.email, email));
+    const [existing] = await db
+      .select()
+      .from(user)
+      .where(eq(user.nextcloudId, nextcloudId));
+
+    if (existing) {
+      const [updated] = await db
+        .update(user)
+        .set({ email, name })
+        .where(eq(user.nextcloudId, nextcloudId))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(user)
+      .values({ nextcloudId, email, name })
+      .returning();
+    return created;
   } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get user by email"
-    );
+    throw new ChatbotError("bad_request:database", "Failed to upsert user");
   }
 }
 
-export async function createUser(email: string, password: string) {
-  const hashedPassword = generateHashedPassword(password);
-
+export async function getUserById(id: string): Promise<User | null> {
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    const [found] = await db.select().from(user).where(eq(user.id, id));
+    return found ?? null;
   } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to create user");
-  }
-}
-
-export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
-
-  try {
-    return await db.insert(user).values({ email, password }).returning({
-      id: user.id,
-      email: user.email,
-    });
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to create guest user"
-    );
+    throw new ChatbotError("bad_request:database", "Failed to get user by id");
   }
 }
 
@@ -599,4 +608,186 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       "Failed to get stream ids by chat id"
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cost tracking
+// ---------------------------------------------------------------------------
+
+export async function logUsage({
+  userId,
+  model,
+  provider,
+  inputTokens,
+  outputTokens,
+  cost,
+}: {
+  userId: string;
+  model: string;
+  provider: string;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+}) {
+  try {
+    await db.insert(usageLog).values({
+      userId,
+      model,
+      provider,
+      inputTokens,
+      outputTokens,
+      cost: cost.toFixed(8),
+    });
+  } catch (_error) {
+    // Non-critical — log and continue rather than breaking the chat response
+    console.error("Failed to log usage", _error);
+  }
+}
+
+export async function getUsageByUserId({
+  userId,
+  limit = 50,
+}: {
+  userId: string;
+  limit?: number;
+}) {
+  return db
+    .select()
+    .from(usageLog)
+    .where(eq(usageLog.userId, userId))
+    .orderBy(desc(usageLog.createdAt))
+    .limit(limit);
+}
+
+export async function getUsageSummaryByUserId({ userId }: { userId: string }) {
+  const [summary] = await db
+    .select({
+      totalInputTokens: sum(usageLog.inputTokens),
+      totalOutputTokens: sum(usageLog.outputTokens),
+      totalCost: sum(usageLog.cost),
+    })
+    .from(usageLog)
+    .where(eq(usageLog.userId, userId));
+  return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge sources
+// ---------------------------------------------------------------------------
+
+export async function getKnowledgeSourcesByUserId({
+  userId,
+}: {
+  userId: string;
+}) {
+  return db
+    .select()
+    .from(knowledgeSource)
+    .where(eq(knowledgeSource.userId, userId))
+    .orderBy(desc(knowledgeSource.createdAt));
+}
+
+export async function createKnowledgeSource({
+  userId,
+  path,
+  shareId,
+  label,
+}: {
+  userId: string;
+  path: string;
+  shareId?: string;
+  label?: string;
+}) {
+  const [created] = await db
+    .insert(knowledgeSource)
+    .values({ userId, path, shareId, label })
+    .returning();
+  return created;
+}
+
+export async function updateKnowledgeSourceStatus({
+  id,
+  status,
+  errorMessage,
+}: {
+  id: string;
+  status: "pending" | "processing" | "ready" | "error";
+  errorMessage?: string;
+}) {
+  return db
+    .update(knowledgeSource)
+    .set({
+      status,
+      errorMessage: errorMessage ?? null,
+      lastSyncedAt: status === "ready" ? new Date() : undefined,
+    })
+    .where(eq(knowledgeSource.id, id));
+}
+
+export async function deleteKnowledgeSource({ id }: { id: string }) {
+  await db.delete(documentChunk).where(eq(documentChunk.knowledgeSourceId, id));
+  const [deleted] = await db
+    .delete(knowledgeSource)
+    .where(eq(knowledgeSource.id, id))
+    .returning();
+  return deleted;
+}
+
+// ---------------------------------------------------------------------------
+// Processing jobs (worker queue)
+// ---------------------------------------------------------------------------
+
+export async function enqueueProcessingJob({
+  type,
+  payload,
+}: {
+  type: "index_source" | "reindex_source" | "delete_source";
+  payload: Record<string, unknown>;
+}) {
+  const [job] = await db
+    .insert(processingJob)
+    .values({ type, payload })
+    .returning();
+  return job;
+}
+
+export async function claimNextProcessingJob() {
+  const [job] = await db
+    .select()
+    .from(processingJob)
+    .where(eq(processingJob.status, "pending"))
+    .orderBy(asc(processingJob.scheduledAt))
+    .limit(1);
+
+  if (!job) return null;
+
+  const [claimed] = await db
+    .update(processingJob)
+    .set({ status: "processing", attempts: job.attempts + 1 })
+    .where(
+      and(eq(processingJob.id, job.id), eq(processingJob.status, "pending"))
+    )
+    .returning();
+
+  return claimed ?? null;
+}
+
+export async function completeProcessingJob({ id }: { id: string }) {
+  return db
+    .update(processingJob)
+    .set({ status: "done", processedAt: new Date() })
+    .where(eq(processingJob.id, id));
+}
+
+export async function failProcessingJob({
+  id,
+  error,
+}: {
+  id: string;
+  error: string;
+}) {
+  return db
+    .update(processingJob)
+    .set({ status: "failed", lastError: error })
+    .where(eq(processingJob.id, id));
 }

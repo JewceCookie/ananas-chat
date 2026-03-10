@@ -5,9 +5,18 @@ export const authConfig = {
     signIn: "/login",
     newUser: "/",
   },
-  providers: [
-    // added later in auth.ts since it requires bcrypt which is only compatible with Node.js
-    // while this file is also used in non-Node.js environments
-  ],
-  callbacks: {},
+  providers: [],
+  callbacks: {
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isOnLoginPage = nextUrl.pathname === "/login";
+      const isApiRoute = nextUrl.pathname.startsWith("/api/");
+
+      if (isApiRoute) return true;
+      if (isOnLoginPage) return true;
+      if (!isLoggedIn) return false;
+
+      return true;
+    },
+  },
 } satisfies NextAuthConfig;

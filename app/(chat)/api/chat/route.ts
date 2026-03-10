@@ -1,4 +1,3 @@
-import { geolocation, ipAddress } from "@vercel/functions";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -10,7 +9,8 @@ import {
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
-import { auth, type UserType } from "@/app/(auth)/auth";
+import { auth } from "@/app/(auth)/auth";
+import { trackUsage } from "@/lib/ai/cost-tracker";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { allowedModelIds } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
@@ -79,16 +79,18 @@ export async function POST(request: Request) {
       return new ChatbotError("bad_request:api").toResponse();
     }
 
-    await checkIpRateLimit(ipAddress(request));
-
-    const userType: UserType = session.user.type;
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "unknown";
+    await checkIpRateLimit(ip);
 
     const messageCount = await getMessageCountByUserId({
       id: session.user.id,
       differenceInHours: 1,
     });
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerHour) {
+    if (messageCount > entitlementsByUserType["regular"].maxMessagesPerHour) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 
@@ -119,14 +121,7 @@ export async function POST(request: Request) {
       ? (messages as ChatMessage[])
       : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
 
-    const { longitude, latitude, city, country } = geolocation(request);
-
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
+    const requestHints: RequestHints = {};
 
     if (message?.role === "user") {
       await saveMessages({
@@ -158,6 +153,17 @@ export async function POST(request: Request) {
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
+          onFinish: async ({ usage: tokenUsage }) => {
+            if (tokenUsage && session?.user) {
+              const u = tokenUsage as unknown as Record<string, number>;
+              await trackUsage({
+                userId: session.user.id,
+                model: selectedChatModel,
+                inputTokens: u.inputTokens ?? u.promptTokens ?? 0,
+                outputTokens: u.outputTokens ?? u.completionTokens ?? 0,
+              });
+            }
+          },
           experimental_activeTools: isReasoningModel
             ? []
             : [
