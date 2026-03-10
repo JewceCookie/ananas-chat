@@ -1,8 +1,14 @@
+networks:
+  ananas:
+    driver: bridge
+
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    networks:
+      - ananas
     ports:
       - "3000:3000"
     env_file:
@@ -23,6 +29,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    networks:
+      - ananas
     env_file:
       - .env
     environment:
@@ -36,6 +44,8 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
+    networks:
+      - ananas
     volumes:
       - ./data/qdrant:/qdrant/storage
     ports:
@@ -44,6 +54,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    networks:
+      - ananas
     volumes:
       - ./data/redis:/data
     restart: unless-stopped
@@ -52,13 +64,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  ollama:
-    image: ollama/ollama:latest
-    volumes:
-      - ./data/ollama:/root/.ollama
-    ports:
-      - "11434:11434"
-    restart: unless-stopped
-    profiles:
-      - ollama
