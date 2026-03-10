@@ -3,14 +3,15 @@ networks:
     driver: bridge
 
 services:
-  app:
+  ananas-chat:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: ananas-chat
     networks:
       - ananas
     ports:
-      - "3000:3000"
+      - "4269:3000"
     env_file:
       - .env
     environment:
@@ -25,10 +26,11 @@ services:
       - ./data/uploads:/app/uploads
     restart: unless-stopped
 
-  worker:
+  ananas-chat-embedder:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    container_name: ananas-chat-embedder
     networks:
       - ananas
     env_file:
@@ -36,14 +38,15 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
     depends_on:
-      qdrant:
+      ananas-chat-qdrant:
         condition: service_started
-      redis:
+      ananas-chat-redis:
         condition: service_healthy
     restart: unless-stopped
 
-  qdrant:
+  ananas-chat-qdrant:
     image: qdrant/qdrant:latest
+    container_name: ananas-chat-qdrant
     networks:
       - ananas
     volumes:
@@ -52,8 +55,9 @@ services:
       - "6333:6333"
     restart: unless-stopped
 
-  redis:
+  ananas-chat-redis:
     image: redis:7-alpine
+    container_name: ananas-chat-redis
     networks:
       - ananas
     volumes:
