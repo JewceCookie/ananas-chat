@@ -15,38 +15,38 @@ services:
     env_file:
       - .env
     environment:
-      - QDRANT_URL=http://qdrant:6333
-      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://ananas-qdrant:6333
+      - REDIS_URL=redis://ananas-redis:6379
     depends_on:
-      qdrant:
+      ananas-qdrant:
         condition: service_started
-      redis:
+      ananas-redis:
         condition: service_healthy
     volumes:
       - ./data/uploads:/app/uploads
     restart: unless-stopped
 
-  ananas-chat-embedder:
+  ananas-embedder:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: ananas-chat-embedder
+    container_name: ananas-embedder
     networks:
       - ananas
     env_file:
       - .env
     environment:
-      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_URL=http://ananas-chat-qdrant:6333
     depends_on:
-      ananas-chat-qdrant:
+      ananas-qdrant:
         condition: service_started
-      ananas-chat-redis:
+      ananas-redis:
         condition: service_healthy
     restart: unless-stopped
 
-  ananas-chat-qdrant:
+  ananas-qdrant:
     image: qdrant/qdrant:latest
-    container_name: ananas-chat-qdrant
+    container_name: ananas-qdrant
     networks:
       - ananas
     volumes:
@@ -55,9 +55,9 @@ services:
       - "6333:6333"
     restart: unless-stopped
 
-  ananas-chat-redis:
+  ananas-redis:
     image: redis:7-alpine
-    container_name: ananas-chat-redis
+    container_name: ananas-redis
     networks:
       - ananas
     volumes:
