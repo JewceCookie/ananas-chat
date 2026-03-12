@@ -3,6 +3,19 @@ networks:
     driver: bridge
 
 services:
+  ananas-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: ananas-migrate
+    networks:
+      - ananas
+    env_file:
+      - .env
+    command: ["npx", "tsx", "lib/db/migrate.ts"]
+    restart: "no"
+
   ananas-chat:
     build:
       context: .
@@ -18,6 +31,8 @@ services:
       - QDRANT_URL=http://ananas-qdrant:6333
       - REDIS_URL=redis://ananas-redis:6379
     depends_on:
+      ananas-migrate:
+        condition: service_completed_successfully
       ananas-qdrant:
         condition: service_started
       ananas-redis:
@@ -36,7 +51,7 @@ services:
     env_file:
       - .env
     environment:
-      - QDRANT_URL=http://ananas-chat-qdrant:6333
+      - QDRANT_URL=http://ananas-qdrant:6333
     depends_on:
       ananas-qdrant:
         condition: service_started
