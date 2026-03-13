@@ -9,46 +9,56 @@ Ananas Chat is a self-hosted AI chat application with deep Nextcloud integration
 - **Nextcloud-native knowledge system** — RAG pipeline that indexes user files from Nextcloud, respects share permissions, and handles nearly any document type including images.
 - **Multi-provider AI** — OpenAI, Anthropic, Ollama (local) out of the box; any provider addable via the Vercel AI SDK provider interface.
 - **Exact cost tracking** — every AI call is metered per user with token-level granularity.
-- **Nextcloud OIDC authentication** — single sign-on via Nextcloud acting as an OIDC Identity Provider.
-- **German-first, translatable** — default locale is `de`; all UI strings go through `next-intl` from day one.
+- **Keycloak SSO** — single sign-on via Keycloak as the central OIDC Identity Provider for both Ananas Chat and Nextcloud.
+- **German-first, translatable** — default locale is `de`; all UI strings go through `next-intl`. Locale is detected from `Accept-Language` header (no locale prefix in URLs).
 
 ## Tech Stack
 
 | Layer              | Technology                                                   |
 | ------------------ | ------------------------------------------------------------ |
-| Framework          | Next.js (App Router), React                                  |
+| Framework          | Next.js 16 (App Router), React 19                            |
 | Language           | TypeScript                                                   |
 | UI                 | shadcn/ui, Radix UI, Tailwind CSS                            |
 | AI                 | Vercel AI SDK (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `ollama-ai-provider`) |
-| Database           | PostgreSQL (with pgcrypto) via Drizzle ORM                   |
-| Vector DB          | Qdrant                                                       |
-| Auth               | Auth.js v5 with custom Nextcloud OIDC provider               |
+| Database           | PostgreSQL (external/central infra) via Drizzle ORM          |
+| Vector DB          | Qdrant (in app Docker stack)                                 |
+| Auth               | Auth.js v5 (NextAuth) with Keycloak OIDC provider            |
 | File Access        | Nextcloud WebDAV + OCS Share API                             |
-| i18n               | next-intl                                                    |
-| Rate Limiting      | Redis                                           |
-| Deployment         | Docker Compose (self-hosted)                                 |
-| Package Manager    | pnpm                                                         |
+| i18n               | next-intl (`localePrefix: "never"`)                          |
+| Rate Limiting      | Redis (in app Docker stack)                                  |
+| Deployment         | Docker Compose (self-hosted, behind Cloudflare Tunnel)       |
+| Package Manager    | npm                                                          |
 
 ## Architecture
 
 ```
-Docker Compose Stack
-├── next-app          — Next.js application (frontend + API routes)
-├── postgres          — PostgreSQL 16 + pgcrypto
-├── qdrant            — Qdrant vector database
-├── worker            — Document processing worker (background jobs)
-├── redis             — Rate limiting, resumable streams
-└── ollama            — Local LLM inference (optional)
+App Docker Stack (docker-compose.yml)
+├── ananas-migrate    — one-shot migration runner (exits after running)
+├── ananas-chat       — Next.js application (frontend + API routes)
+├── ananas-embedder   — Document processing worker (background jobs)
+├── ananas-qdrant     — Qdrant vector database
+└── ananas-redis      — Rate limiting, resumable streams
 
-External Services
-├── Nextcloud         — OIDC IdP + file storage (WebDAV)
+Central Infra Stack (separate docker-compose, not in this repo)
+├── postgres          — PostgreSQL 16 (shared across all apps)
+└── keycloak          — Keycloak identity provider (shared across all apps)
+
+External Services (bare-metal or separate server)
+├── Nextcloud         — File storage (WebDAV) + OIDC client via nextcloud-oidc-login
+├── Ollama            — Local LLM inference (separate Docker container on host)
 ├── OpenAI API        — Cloud LLM + embeddings
 └── Anthropic API     — Cloud LLM
 ```
 
+### Docker networking
+
+The app stack uses two Docker networks:
+- `ananas` — internal network for app services (chat, embedder, qdrant, redis)
+- `infra` — external network (defined in the infra stack) that the migrate, chat, and embedder services also join to reach `postgres` and `keycloak` by container name
+
 ### Data flow
 
-1. User logs in via Nextcloud OIDC. Auth.js creates a session; the OIDC access token is stored for Nextcloud API access.
+1. User logs in via Keycloak OIDC. Auth.js creates a session; the Keycloak access token is stored in the JWT for Nextcloud WebDAV access.
 2. User selects Nextcloud folders to index. The app enqueues processing jobs in PostgreSQL.
 3. The document processing worker picks up jobs, fetches files via WebDAV (using the user's bearer token), extracts text, chunks, embeds, and stores vectors in Qdrant.
 4. During chat, relevant document chunks are retrieved from Qdrant and injected as context into the AI prompt.
@@ -56,31 +66,84 @@ External Services
 
 ## Authentication
 
-**Keycloak** is the central Identity Provider (IdP) for the entire platform. Both Ananas Chat and Nextcloud authenticate through Keycloak (SSO).
+**Keycloak** is the central Identity Provider (IdP). Both Ananas Chat and Nextcloud authenticate through Keycloak (SSO).
 
 ```
 User → Keycloak (OIDC) → Ananas Chat session
-                       ↘ Nextcloud (via user_oidc app)
+                       ↘ Nextcloud (via nextcloud-oidc-login app)
 ```
 
-**Keycloak setup:**
-- Realm: configurable via `KEYCLOAK_REALM` env var
-- Client for Ananas Chat: `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET`
-- Redirect URI: `{APP_URL}/api/auth/callback/keycloak`
-- Auth.js configured with the OIDC provider pointing to `{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}`
+### Keycloak setup (realm: configurable via `KEYCLOAK_REALM`)
 
-**Nextcloud setup:**
-- Install the `user_oidc` app
-- Configure it to use Keycloak as the external OIDC provider
-- Enable bearer token validation: `occ user_oidc:provider <id> --bearerValidation 1`
-- This allows Keycloak-issued access tokens to authenticate WebDAV/OCS API requests
+Two clients in the same realm:
 
-**How it works end-to-end:**
+**`ananas-chat` client** (for the Next.js app):
+- Type: OpenID Connect, confidential (Client authentication ON)
+- PKCE Method: S256
+- Valid redirect URI: `{AUTH_URL}/api/auth/callback/keycloak`
+- Has the `nextcloud-audience` client scope assigned, which adds `nextcloud` to the `aud` claim of access tokens
+
+**`nextcloud` client** (for Nextcloud):
+- Type: OpenID Connect, confidential (Client authentication ON)
+- PKCE Method: S256
+- Valid redirect URI: `{NEXTCLOUD_URL}/apps/oidc_login/oidc`
+
+**Audience scope** (`nextcloud-audience`):
+- Client scope with an Audience mapper → Included Client Audience: `nextcloud`
+- Include in token scope: ON, Add to access token: ON
+- Assigned to `ananas-chat` so its tokens carry `aud: [..., "nextcloud"]`
+- This allows the ananas-chat access token to authenticate Nextcloud WebDAV calls
+
+### Nextcloud setup
+
+Uses the [nextcloud-oidc-login](https://github.com/pulsejet/nextcloud-oidc-login) app (not the official `user_oidc`).
+
+Key `config.php` entries:
+```php
+'oidc_login_provider_url'          => '{KEYCLOAK_URL}/realms/{REALM}',
+'oidc_login_client_id'             => 'nextcloud',
+'oidc_login_client_secret'         => '...',
+'oidc_login_webdav_enabled'        => true,   // enables bearer token WebDAV auth
+'oidc_login_disable_registration'  => false,  // auto-create users on first login
+'oidc_login_code_challenge_method' => 'S256',
+'oidc_login_attributes' => array(
+    'id'   => 'preferred_username',
+    'name' => 'name',
+    'mail' => 'email',
+),
+```
+
+`oidc_login_provider_url` must be the **public** Keycloak URL — Nextcloud fetches JWKS from it, and the `iss` claim in the token must match it exactly.
+
+### How it works end-to-end
+
 1. User logs in via Keycloak — single login for all services
-2. Keycloak issues an OIDC access token; Auth.js creates a session and stores the token in the JWT
-3. OIDC claims used: `sub` (user ID), `email`, `name`, `groups`
-4. For WebDAV file access, the same Keycloak access token is used as a bearer token — Nextcloud validates it via the `user_oidc` bearer token validation
-5. File permissions are governed entirely by Nextcloud's own permission model (shares, group folders, ACLs)
+2. Keycloak issues an access token with `aud: ["ananas-chat", "nextcloud"]`
+3. Auth.js creates a session and stores the token in the JWT
+4. For WebDAV file access, the same Keycloak access token is sent as a Bearer token — Nextcloud validates it against Keycloak's JWKS
+
+### Cloudflare Tunnel — required env vars
+
+The app runs behind Cloudflare Tunnel (`cloudflared`), which terminates TLS at the edge and forwards plain HTTP to the container. Two settings are critical:
+
+1. **`AUTH_TRUST_HOST=true`** must be set as an environment variable in production. `trustHost: true` in `auth.ts` alone is insufficient — the env var is what Auth.js v5 actually reads in the proxy (middleware) layer. Without it, Auth.js sees the internal `http://` request URL, names the session cookie `authjs.session-token`, but the browser already holds `__Secure-authjs.session-token` (set during the HTTPS response). The session is always invalid → redirects to `/login` → redirect loop.
+
+2. **`KEYCLOAK_URL` must use `https://`** if Keycloak is itself behind Cloudflare Tunnel. Keycloak embeds its own URL as the `iss` claim in JWT tokens. If `KEYCLOAK_URL=http://...` but Keycloak's public URL is `https://...`, the issuer check in Auth.js will fail and logins will error out.
+
+## DB Migrations
+
+Migrations are **not** run during `docker build`. They run at container startup via the `ananas-migrate` service (uses the `builder` stage of the Dockerfile which has `tsx` available). The app (`ananas-chat`) depends on `ananas-migrate` completing successfully before it starts.
+
+```bash
+# Generate new migration files after schema changes (run locally)
+npm run db:generate
+
+# Migrations run automatically on docker compose up via ananas-migrate service
+```
+
+## Next.js 16 — proxy.ts
+
+Next.js 16 renamed `middleware.ts` to `proxy.ts` and the export from `export default` to `export const proxy`. The file is at `proxy.ts` in the project root and chains NextAuth's `auth` wrapper with `next-intl`'s middleware.
 
 ## Knowledge System / RAG
 
@@ -89,42 +152,36 @@ User → Keycloak (OIDC) → Ananas Chat session
 - User files accessed via WebDAV: `GET /remote.php/dav/files/{username}/path/to/file`
 - Folder listing via `PROPFIND` on the same endpoint
 - Shared folders discovered via OCS Share API: `GET /ocs/v2.php/apps/files_sharing/api/v1/shares`
-- All requests authenticated with the user's OIDC bearer token
+- All requests authenticated with the user's Keycloak bearer token
 
 ### Document processing pipeline
 
-The worker processes documents in a background queue:
+The `ananas-embedder` worker processes documents from a PostgreSQL job queue:
 
 1. **Fetch** — download file from Nextcloud via WebDAV
 2. **Extract** — pull text from the document:
-   - PDF, DOCX, PPTX, ODT, TXT, Markdown, HTML, CSV → text extraction
-   - Images (JPEG, PNG, WEBP, etc.) → send to AI for visual description, then use the description text
-3. **Chunk** — split extracted text into overlapping chunks suitable for embedding
-4. **Embed** — generate vector embeddings (e.g. OpenAI `text-embedding-3-small`)
-5. **Store** — save vectors in Qdrant with metadata (source file, user, share ID, chunk position)
+   - PDF → `pdf-parse`
+   - DOCX → `mammoth`
+   - TXT, Markdown, HTML, CSV → read as UTF-8
+   - Images → GPT-4o-mini visual description (in German)
+3. **Chunk** — split into overlapping 1000-char chunks (200-char overlap)
+4. **Embed** — OpenAI `text-embedding-3-small` (1536 dimensions)
+5. **Store** — upsert vectors into Qdrant collection `knowledge` with metadata (userId, knowledgeSourceId, sourceFile, chunkIndex)
 
-### Access control in Qdrant
+### RAG in chat (not yet implemented)
 
-- Vectors are tagged with the owning user ID and, for shared content, the share ID
-- At query time, filter Qdrant results to only include vectors the requesting user has access to
-- When a share is revoked in Nextcloud, a sync process removes the corresponding vectors
-
-### User interaction
-
-- Users can browse their Nextcloud folders in the app and select which ones to index
-- Shared folders appear separately; users opt in to indexing shared content
-- Re-indexing can be triggered manually or runs on a schedule to pick up changes
+`worker/qdrant.ts` has `searchSimilar()` ready, but the chat route does not yet call it. Wiring RAG into the chat route is the next major feature.
 
 ## AI Provider Abstraction
 
-Use the Vercel AI SDK's provider-agnostic interface. All model interactions go through the SDK so providers are interchangeable.
+Use the Vercel AI SDK's provider-agnostic interface. All model interactions go through the SDK.
 
-**Initial providers:**
+**Providers:**
 - OpenAI (`@ai-sdk/openai`)
 - Anthropic (`@ai-sdk/anthropic`)
-- Ollama (local, via `ollama-ai-provider` or equivalent)
+- Ollama (local, via `ollama-ai-provider`) — Ollama runs as a separate container on the host, not in the app stack
 
-**Provider registry pattern:** a configuration object maps provider IDs to their SDK setup and pricing. Adding a new provider means adding an entry to the registry and installing its SDK adapter — no changes to calling code.
+**Provider registry:** `lib/ai/registry.ts` maps provider IDs to SDK setup and pricing. Adding a provider = adding a registry entry + installing its SDK adapter.
 
 ## Cost Tracking
 
@@ -133,8 +190,6 @@ Every AI call (chat completion, embedding, image description) is tracked:
 - **Captured per request:** user ID, model, provider, input tokens, output tokens, total cost, timestamp
 - **Stored in:** `usage_log` table in PostgreSQL
 - **Pricing source:** `model_pricing` table mapping (provider, model) → cost per 1K input/output tokens
-- **User dashboard:** users can view their own usage history and cumulative cost
-- **Admin dashboard:** aggregated costs across all users
 
 The cost-tracking wrapper sits around every AI SDK call. No AI request bypasses it.
 
@@ -144,9 +199,10 @@ The cost-tracking wrapper sits around every AI SDK call. No AI request bypasses 
 - Default locale: `de` (German)
 - Fallback locale: `en` (English)
 - Translation files: `messages/de.json`, `messages/en.json`
+- `localePrefix: "never"` — locale is detected from `Accept-Language` header, never appears in the URL
 - **Rule: every user-facing string must use a translation key.** Never hardcode German or English text in components.
 
-## Database Schema Extensions
+## Database Schema
 
 Beyond the base Vercel AI chatbot schema (User, Chat, Message_v2, Vote_v2, Document, Suggestion, Stream), the following tables are added:
 
@@ -158,14 +214,23 @@ Beyond the base Vercel AI chatbot schema (User, Chat, Message_v2, Vote_v2, Docum
 | `document_chunk`   | Metadata for processed chunks — vectors live in Qdrant (sourceFile, knowledgeSourceId, chunkIndex, qdrantPointId) |
 | `processing_job`   | Background job queue for the document worker (type, payload, status, attempts, scheduledAt) |
 
-## Self-Hosting / Docker
+## Environment Variables
 
-Adaptations from the Vercel-oriented original:
+See `.env.example` for the full list. Key variables:
 
-- **File storage:** replace Vercel Blob with local filesystem or S3-compatible storage (MinIO)
-- **Database:** replace Neon Serverless Postgres with standard PostgreSQL 16
-- **Docker Compose** services: `next-app`, `postgres`, `qdrant`, `worker`, `redis`, `ollama` (optional)
-- **Environment variables:** all secrets and configuration via `.env` file, documented in `.env.example`
+| Variable | Description |
+|---|---|
+| `AUTH_SECRET` | NextAuth session encryption secret |
+| `AUTH_URL` | Public URL of the app (e.g. `https://ananas.example.com`) |
+| `KEYCLOAK_URL` | Public Keycloak URL (e.g. `https://auth.example.com`) |
+| `KEYCLOAK_REALM` | Keycloak realm name |
+| `KEYCLOAK_CLIENT_ID` | `ananas-chat` |
+| `KEYCLOAK_CLIENT_SECRET` | Client secret from Keycloak |
+| `NEXTCLOUD_URL` | Nextcloud instance URL |
+| `POSTGRES_URL` | Connection string to central Postgres |
+| `QDRANT_URL` | Qdrant URL (internal: `http://ananas-qdrant:6333`) |
+| `REDIS_URL` | Redis URL (internal: `redis://ananas-redis:6379`) |
+| `OLLAMA_BASE_URL` | Ollama URL (host container, e.g. `http://192.168.1.100:11434`) |
 
 ## Coding Conventions
 
