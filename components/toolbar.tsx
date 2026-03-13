@@ -1,6 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import cx from "classnames";
+import { cn as cx } from "@/lib/utils";
 import {
   AnimatePresence,
   motion,

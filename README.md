@@ -1,71 +1,71 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Chatbot" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chatbot</h1>
-</a>
 
-<p align="center">
-    Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
-</p>
-
-<p align="center">
-  <a href="https://chatbot.dev"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
-<br/>
-
-## Features
-
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports OpenAI, Anthropic, Google, xAI, and other model providers via AI Gateway
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
-
-## Model Providers
-
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default model is [OpenAI](https://openai.com) GPT-4.1 Mini, with support for Anthropic, Google, and xAI models.
-
-### AI Gateway Authentication
-
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
-
+# from old ai chatbot (keep for now)
 **For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
 
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+This project is based on the Vercel AI Chatbot template, but heavily modified to remove bloat and add my own features (the current progress and planned features is probably best documented in agents.md). 
 
-## Deploy Your Own
+# Setup
+I use a central Keycloak OIDC that has a realm providing auth for both this app and nextcloud. 
+The setup of this is not easy, in my opinion. 
+I use Cloudflare tunnel as a reverse proxy before my app, nextcloud and keycloak. 
+Here's how I setup my Keycloak, but I may be missing something. 
+At the time of writing, my ananas-chat is not yet working with Keycloak (or even at all) so take this all with a grain of salt.
+If I missed something, either figure it out and then tell me what I need to update, or ask me for a solution. 
+For problems with nextcloud, the documentation of the plugin may have more information for you.
 
-You can deploy your own version of Chatbot to Vercel with one click:
+1. Get the https://apps.nextcloud.com/apps/oidc_login OIDC login plugin for nextcloud. (I discourage you from using nextcloud as the OIDC provider, since tokens always give 100% access there as far as I know.)
+2. Create a realm in keycloak for this app and nextcloud
+3. Create clients ananas-chat and nextcloud. I YOLO'd my URLs: 
+For nextcloud 
+Root URL https://nextcloud.gossen-na.de
+Home URL https://nextcloud.gossen-na.de
+Valid redirect URIs https://nextcloud.gossen-na.de/apps/oidc_login/oidc; https://nextcloud.gossen-na.de/index.php/apps/oidc_login/oidc
+Valid post logout redirect URIs https://nextcloud.gossen-na.de/index.php; https://nextcloud.gossen-na.de/; https://nextcloud.gossen-na.de/apps/oidc_login/oidc
+Web origins https://nextcloud.gossen-na.de/index.php; https://nextcloud.gossen-na.de
+Admin URL https://nextcloud.gossen-na.de
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/chatbot)
+For ananas-chat
+Root URL https://ananas.gossen-na.de
+Home URL https://ananas.gossen-na.de
+Valid redirect URIs https://ananas.gossen-na.de/api/auth/callback/keycloak
+Valid post logout redirect URIs https://ananas.gossen-na.de
+Web origins https://ananas.gossen-na.de
+Admin URL https://ananas.gossen-na.de
 
-## Running locally
+"Client authentication" on, PKCE Method S256
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+4. For the nextcloud client, go to advanved -> Fine grain OpenID Connect configuration -> ID token signature algorithm: RS256
+5. For the nextcloud client, go to the nextcloud-dedicated scope. Make a mapper nextcloud_quota by configuration "User Attribute". Make sure it's added to the ID and access token.
+6. Also in the dedicated nextcloud scope, make a mapper nextcloud_groups by configuration "User Client Role". It is multivalued. Make sure it's added to the ID and access token.
+7. Configure your nextcloud config correctly. My setup: 
+  'allow_user_to_change_display_name' => false,
+  'lost_password_link' => 'disabled',
+  'oidc_login_provider_url' => 'https://auth.gossen-na.de/realms/ananas',
+  'oidc_login_logout_url' => 'https://nextcloud.gossen-na.de/',
+  'oidc_login_client_id' => 'nextcloud',
+  'oidc_login_client_secret' => 'SECRET', ### -> GET THIS FROM KEYCLOAK
+  'overwriteprotocol' => 'https',
+  'oidc_login_hide_password_form' => true,
+  'oidc_login_auto_redirect' => true,
+  'oidc_login_end_session_redirect' => true,
+  'oidc_login_button_text' => 'Login with Keycloak',
+  'oidc_login_redir_fallback' => true,
+  'oidc_login_disable_registration' => false,
+  'oidc_login_webdav_enabled' => true,
+  'oidc_login_tls_verify' => true,
+  'oidc_login_code_challenge_method' => 'S256',
+  'oidc_login_attributes' =>
+  array (
+    'id' => 'preferred_username',
+    'name' => 'name',
+    'mail' => 'email',
+    'groups' => 'nextcloud_groups',
+    'quota' => 'nextcloud_quota',
+  ),
+8. Pray.
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
+I do not really have any idea how you deploy this from scratch because I am new to some of these things and it was trial and error. 
+There is probably something you need to do with Postgres. For me, deploying now basically just works like this: 
+git clone this repo. configure .env correctly. do "docker compose up -d --build". 
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
-
-```bash
-pnpm install
-pnpm db:migrate # Setup database or apply latest database changes
-pnpm dev
-```
-
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+This README is absolutely trash but I will redo it with AI once this is a bit more mature. Maybe someone who deploys this from scratch can help me figure out common pitfalls.

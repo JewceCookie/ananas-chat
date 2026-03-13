@@ -53,6 +53,16 @@
     "selectModel": "Modell auswählen",
     "provider": "Anbieter"
   },
+  "greeting": {
+    "title": "Hallo!",
+    "subtitle": "Wie kann ich dir heute helfen?"
+  },
+  "suggestedActions": {
+    "action1": "Fasse dieses Dokument zusammen",
+    "action2": "Was sind die wichtigsten Punkte?",
+    "action3": "Erkläre das mir einfach",
+    "action4": "Schreib einen Entwurf dazu"
+  },
   "common": {
     "loading": "Lädt...",
     "save": "Speichern",

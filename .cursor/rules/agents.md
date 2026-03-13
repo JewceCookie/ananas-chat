@@ -246,6 +246,20 @@ See `.env.example` for the full list. Key variables:
 | `REDIS_URL` | Redis URL (internal: `redis://ananas-redis:6379`) |
 | `OLLAMA_BASE_URL` | Ollama URL (host container, e.g. `http://192.168.1.100:11434`) |
 
+## Artifact System
+
+The artifact side-panel is powered by several heavyweight UI libraries that must be kept:
+
+| Library | Artifact | What it does |
+|---|---|---|
+| `prosemirror-*` (8 packages) + `orderedmap` + `diff-match-patch` | text | Rich text editor with suggestions, tracked changes, version diffs |
+| `codemirror` + `@codemirror/*` (5 packages) | code | Syntax-highlighted code editor with in-browser Python execution (Pyodide) |
+| `react-data-grid` + `papaparse` | sheet | Spreadsheet editor for CSV data the AI generates |
+| `@xyflow/react` | ai-elements canvas | Node-graph flow view for AI reasoning diagrams |
+| `embla-carousel-react` | inline citations | Swipeable source card carousel in AI responses |
+
+When making changes around the message/response/artifact area, keep these libraries and their component trees in mind. Removing any of them requires removing the corresponding artifact kind and all components that depend on it.
+
 ## Coding Conventions
 
 1. **i18n** — all user-facing text must use `next-intl` translation keys. German is the primary language. Never hardcode UI strings.

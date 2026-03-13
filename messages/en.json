@@ -53,6 +53,16 @@
     "selectModel": "Select model",
     "provider": "Provider"
   },
+  "greeting": {
+    "title": "Hello!",
+    "subtitle": "How can I help you today?"
+  },
+  "suggestedActions": {
+    "action1": "Summarise this document",
+    "action2": "What are the key points?",
+    "action3": "Explain this to me simply",
+    "action4": "Write a draft for this"
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",

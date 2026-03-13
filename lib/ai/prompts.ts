@@ -38,47 +38,21 @@ Do not update document right after creating it. Wait for user feedback or reques
 
 export const regularPrompt = `You are a friendly assistant! Keep your responses concise and helpful.
 
-When asked to write, create, or help with something, just do it directly. Don't ask clarifying questions unless absolutely necessary - make reasonable assumptions and proceed with the task.`;
-
-export type RequestHints = {
-  latitude?: string;
-  longitude?: string;
-  city?: string;
-  country?: string;
-};
-
-export const getRequestPromptFromHints = (requestHints: RequestHints) => {
-  if (!requestHints.city && !requestHints.country) return "";
-  return `\
-About the origin of user's request:
-- lat: ${requestHints.latitude ?? "unknown"}
-- lon: ${requestHints.longitude ?? "unknown"}
-- city: ${requestHints.city ?? "unknown"}
-- country: ${requestHints.country ?? "unknown"}
-`;
-};
+When asked to write, create, or help with something, just do it directly. Ask clarifying questions if necessary, but make reasonable assumptions and proceed with the task when possible.`;
 
 export const systemPrompt = ({
   selectedChatModel,
-  requestHints,
 }: {
   selectedChatModel: string;
-  requestHints: RequestHints;
 }) => {
-  const requestPrompt = getRequestPromptFromHints(requestHints);
-
   if (
     selectedChatModel.includes("reasoning") ||
     selectedChatModel.includes("thinking")
   ) {
-    return requestPrompt
-      ? `${regularPrompt}\n\n${requestPrompt}`
-      : regularPrompt;
+    return regularPrompt;
   }
 
-  return requestPrompt
-    ? `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`
-    : `${regularPrompt}\n\n${artifactsPrompt}`;
+  return `${regularPrompt}\n\n${artifactsPrompt}`;
 };
 
 export const codePrompt = `
