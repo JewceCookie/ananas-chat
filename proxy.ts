@@ -1,12 +1,7 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import createMiddleware from "next-intl/middleware";
-import { routing } from "./i18n/routing";
 
-const intlMiddleware = createMiddleware(routing);
-
-export const proxy = auth((req) => {
-  return intlMiddleware(req);
-});
+export const proxy = auth(() => NextResponse.next());
 
 export const config = {
   matcher: [
