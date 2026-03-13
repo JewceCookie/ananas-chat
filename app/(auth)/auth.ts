@@ -34,6 +34,7 @@ export const {
   signOut,
 } = NextAuth({
   ...authConfig,
+  trustHost: true,
   providers: [
     {
       id: "keycloak",
