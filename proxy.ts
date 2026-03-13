@@ -1,7 +1,25 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import createMiddleware from "next-intl/middleware";
+import { type NextRequest } from "next/server";
+import { routing } from "./i18n/routing";
 
-export const proxy = auth(() => NextResponse.next());
+const intlMiddleware = createMiddleware(routing);
+
+const PUBLIC_PATHS = new Set(["/login", "/register"]);
+
+// auth(fn) is typed as an app-route handler (req, ctx) but Next.js 16 proxy
+// only supplies req — cast to a single-arg form for use inside proxy().
+const protectedMiddleware = auth((req) => intlMiddleware(req)) as (
+  req: NextRequest
+) => Response | Promise<Response>;
+
+export function proxy(req: NextRequest) {
+  if (PUBLIC_PATHS.has(req.nextUrl.pathname)) {
+    return intlMiddleware(req);
+  }
+
+  return protectedMiddleware(req);
+}
 
 export const config = {
   matcher: [

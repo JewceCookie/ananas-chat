@@ -14,20 +14,20 @@ Ananas Chat is a self-hosted AI chat application with deep Nextcloud integration
 
 ## Tech Stack
 
-| Layer              | Technology                                                   |
-| ------------------ | ------------------------------------------------------------ |
-| Framework          | Next.js 16 (App Router), React 19                            |
-| Language           | TypeScript                                                   |
-| UI                 | shadcn/ui, Radix UI, Tailwind CSS                            |
-| AI                 | Vercel AI SDK (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `ollama-ai-provider`) |
-| Database           | PostgreSQL (external/central infra) via Drizzle ORM          |
-| Vector DB          | Qdrant (in app Docker stack)                                 |
-| Auth               | Auth.js v5 (NextAuth) with Keycloak OIDC provider            |
-| File Access        | Nextcloud WebDAV + OCS Share API                             |
-| i18n               | next-intl (`localePrefix: "never"`)                          |
-| Rate Limiting      | Redis (in app Docker stack)                                  |
-| Deployment         | Docker Compose (self-hosted, behind Cloudflare Tunnel)       |
-| Package Manager    | npm                                                          |
+| Layer              | Technology                                                                   |
+| ------------------ | -----------------------------------------------------------------------------|
+| Framework          | Next.js 16 (App Router), React 19                                            |
+| Language           | TypeScript                                                                   |
+| UI                 | shadcn/ui, Radix UI, Tailwind CSS                                            |
+| AI                 | Vercel AI SDK (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `ollama-ai-provider`)  |
+| Database           | PostgreSQL (external/central infra) via Drizzle ORM                          |
+| Vector DB          | Qdrant (in app Docker stack)                                                 |
+| Auth               | Auth.js v5 (NextAuth) with Keycloak OIDC provider                            |
+| File Access        | Nextcloud WebDAV + OCS Share API                                             |
+| i18n               | next-intl (`localePrefix: "never"`)                                          |
+| Rate Limiting      | Redis (in app Docker stack)                                                  |
+| Deployment         | Docker Compose (self-hosted, behind Cloudflare Tunnel)                       |
+| Package Manager    | npm                                                                          |
 
 ## Architecture
 
@@ -122,13 +122,23 @@ Key `config.php` entries:
 3. Auth.js creates a session and stores the token in the JWT
 4. For WebDAV file access, the same Keycloak access token is sent as a Bearer token — Nextcloud validates it against Keycloak's JWKS
 
-### Cloudflare Tunnel — required env vars
+### Cloudflare Tunnel — known issues and fixes
 
-The app runs behind Cloudflare Tunnel (`cloudflared`), which terminates TLS at the edge and forwards plain HTTP to the container. Two settings are critical:
+The app runs behind Cloudflare Tunnel (`cloudflared`), which terminates TLS at the edge and forwards plain HTTP to the container.
 
-1. **`AUTH_TRUST_HOST=true`** must be set as an environment variable in production. `trustHost: true` in `auth.ts` alone is insufficient — the env var is what Auth.js v5 actually reads in the proxy (middleware) layer. Without it, Auth.js sees the internal `http://` request URL, names the session cookie `authjs.session-token`, but the browser already holds `__Secure-authjs.session-token` (set during the HTTPS response). The session is always invalid → redirects to `/login` → redirect loop.
+**Redirect loop fix**: Wrapping `intlMiddleware` inside `auth(...)` for ALL routes causes a redirect loop behind Cloudflare Tunnel. The fix is to handle public paths (`/login`, `/register`) with `intlMiddleware` directly, and only use `auth(req => intlMiddleware(req))` for protected paths. See `proxy.ts`.
 
-2. **`KEYCLOAK_URL` must use `https://`** if Keycloak is itself behind Cloudflare Tunnel. Keycloak embeds its own URL as the `iss` claim in JWT tokens. If `KEYCLOAK_URL=http://...` but Keycloak's public URL is `https://...`, the issuer check in Auth.js will fail and logins will error out.
+**`KEYCLOAK_URL` must use `https://`** if Keycloak is itself behind Cloudflare Tunnel. Keycloak embeds its own URL as the `iss` claim in JWT tokens. If `KEYCLOAK_URL=http://...` but Keycloak's public URL is `https://...`, the issuer check in Auth.js will fail and logins will error out.
+
+## Common Commands
+
+```bash
+npm run typecheck   # TypeScript type check (no emit) - make sure to run this after making changes
+npm run lint        # Biome lint check (ultracite)
+npm run format      # Biome auto-fix (ultracite)
+npm run build       # Next.js production build
+npm run dev         # Next.js dev server (Turbopack)
+```
 
 ## DB Migrations
 
@@ -143,7 +153,9 @@ npm run db:generate
 
 ## Next.js 16 — proxy.ts
 
-Next.js 16 renamed `middleware.ts` to `proxy.ts` and the export from `export default` to `export const proxy`. The file is at `proxy.ts` in the project root and chains NextAuth's `auth` wrapper with `next-intl`'s middleware.
+Next.js 16 renamed `middleware.ts` to `proxy.ts` and the export from `export default` to `export const proxy`. The file is at `proxy.ts` in the project root and composes NextAuth's `auth` wrapper with `next-intl`'s middleware.
+
+**Important**: public paths (`/login`, `/register`) must be handled by `intlMiddleware` alone — wrapping them inside `auth(...)` causes a redirect loop behind Cloudflare Tunnel. Protected paths run `auth` first, then `intlMiddleware` inside the auth callback.
 
 ## Knowledge System / RAG
 
