@@ -126,7 +126,9 @@ Key `config.php` entries:
 
 The app runs behind Cloudflare Tunnel (`cloudflared`), which terminates TLS at the edge and forwards plain HTTP to the container.
 
-**Redirect loop fix**: Wrapping `intlMiddleware` inside `auth(...)` for ALL routes causes a redirect loop behind Cloudflare Tunnel. The fix is to handle public paths (`/login`, `/register`) with `intlMiddleware` directly, and only use `auth(req => intlMiddleware(req))` for protected paths. See `proxy.ts`.
+**Redirect loop fix**: `next-intl`'s `createMiddleware` issues internal rewrites that cause redirect loops behind Cloudflare Tunnel regardless of `localePrefix` setting. `intlMiddleware` is therefore **not used** in `proxy.ts` at all. Instead, locale detection is done directly in `i18n/request.ts` by parsing the `Accept-Language` header — this gives correct locale negotiation without any middleware redirects.
+
+**Future: per-user locale** — locale should eventually be stored as a column on the `user` table and read in `i18n/request.ts` from the session (when the user is authenticated) instead of the `Accept-Language` header. This also enables a locale switcher UI that persists the preference.
 
 **`KEYCLOAK_URL` must use `https://`** if Keycloak is itself behind Cloudflare Tunnel. Keycloak embeds its own URL as the `iss` claim in JWT tokens. If `KEYCLOAK_URL=http://...` but Keycloak's public URL is `https://...`, the issuer check in Auth.js will fail and logins will error out.
 
