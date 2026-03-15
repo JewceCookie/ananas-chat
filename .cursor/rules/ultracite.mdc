@@ -1,6 +1,5 @@
 ---
-description: Ultracite Rules - AI-Ready Formatter and Linter
-globs: "**/*.{ts,tsx,js,jsx}"
+description: 
 alwaysApply: true
 ---
 
