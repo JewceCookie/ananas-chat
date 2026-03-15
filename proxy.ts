@@ -1,15 +1,13 @@
-import NextAuth from "next-auth";
-import { authConfig } from "@/app/(auth)/auth.config";
-import { NextResponse } from "next/server";
+import { auth } from "@/app/(auth)/auth";
 
-
-// Use the lightweight authConfig (with the `authorized` callback) rather than
-// the full auth.ts export, which overrides `callbacks` and loses `authorized`.
 // next-intl's createMiddleware is intentionally omitted — it causes redirect
 // loops behind Cloudflare Tunnel. Locale detection happens in i18n/request.ts.
-const { auth } = NextAuth(authConfig);
-
-export const proxy = auth(() => NextResponse.next());
+export const proxy = auth((req) => {
+  if (!req.auth && req.nextUrl.pathname !== "/login") {
+    const loginUrl = new URL("/login", req.nextUrl.origin);
+    return Response.redirect(loginUrl);
+  }
+});
 
 export const config = {
   matcher: [

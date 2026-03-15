@@ -276,6 +276,10 @@ When making changes around the message/response/artifact area, keep these librar
 
 - **Wire `worker/embedder.ts` to `lib/ai/providers.ts`** — `worker/embedder.ts` hardcodes `openai.embedding("text-embedding-3-small")`. `lib/ai/providers.ts` already exports `getEmbeddingModel()` returning the same model. The worker already uses `@/` path aliases, so it can import and call `getEmbeddingModel()` directly instead of duplicating the model selection.
 
+## Research Policy
+
+Before implementing anything involving a library, framework API, or integration (Auth.js, next-intl, Drizzle, Vercel AI SDK, Keycloak, etc.), **use the internet to look up the current documentation**. Do not rely on training-data assumptions about APIs — versions change, patterns shift, and guessing wastes time. Fetch the official docs with the web search / fetch tools first, then implement.
+
 ## Coding Conventions
 
 1. **i18n** — all user-facing text must use `next-intl` translation keys. German is the primary language. Never hardcode UI strings.
