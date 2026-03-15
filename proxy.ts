@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/app/(auth)/auth.config";
 import { NextResponse } from "next/server";
+import { authConfig } from "@/app/(auth)/auth.config";
 
 // Use the lightweight authConfig (with the `authorized` callback) rather than
 // the full auth.ts export, which overrides `callbacks` and loses `authorized`.
