@@ -71,6 +71,13 @@
       "when": 1741993200000,
       "tag": "0009_add_user_roles_and_rag_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773619200000,
+      "tag": "0010_oidc_user_schema",
+      "breakpoints": true
     }
   ]
 }
