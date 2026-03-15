@@ -64,6 +64,13 @@
       "when": 1768479010084,
       "tag": "0008_flat_forgotten_one",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1741993200000,
+      "tag": "0009_add_user_roles_and_rag_tables",
+      "breakpoints": true
     }
   ]
 }

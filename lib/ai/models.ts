@@ -1,3 +1,5 @@
+import type { ModelTier } from "./entitlements";
+
 export const DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini";
 
 export type ChatModel = {
@@ -5,6 +7,7 @@ export type ChatModel = {
   name: string;
   provider: string;
   description: string;
+  tier: ModelTier;
 };
 
 export const chatModels: ChatModel[] = [
@@ -13,40 +16,48 @@ export const chatModels: ChatModel[] = [
     name: "GPT-4o Mini",
     provider: "openai",
     description: "Schnell und kostengünstig für einfache Aufgaben",
+    tier: "basic",
   },
   {
     id: "openai/gpt-4o",
     name: "GPT-4o",
     provider: "openai",
     description: "Leistungsstarkes OpenAI-Modell",
+    tier: "premium",
   },
   {
     id: "anthropic/claude-haiku-4-5",
     name: "Claude Haiku 4.5",
     provider: "anthropic",
     description: "Schnell und erschwinglich",
+    tier: "basic",
   },
   {
     id: "anthropic/claude-sonnet-4-5",
     name: "Claude Sonnet 4.5",
     provider: "anthropic",
     description: "Ausgewogenes Anthropic-Modell",
+    tier: "premium",
   },
   {
     id: "ollama/llama3.2",
     name: "Llama 3.2 (lokal)",
     provider: "ollama",
     description: "Lokales Modell – keine API-Kosten",
+    tier: "free",
   },
   {
     id: "ollama/mistral",
     name: "Mistral (lokal)",
     provider: "ollama",
     description: "Lokales Mistral-Modell",
+    tier: "free",
   },
 ];
 
 export const allowedModelIds = new Set(chatModels.map((m) => m.id));
+
+export const chatModelsById = new Map(chatModels.map((m) => [m.id, m]));
 
 export const modelsByProvider = chatModels.reduce(
   (acc, model) => {

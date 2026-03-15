@@ -22,6 +22,7 @@ export const user = pgTable("User", {
   nextcloudId: varchar("nextcloudId", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }),
+  roles: json("roles").$type<string[]>().notNull().default([]),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 

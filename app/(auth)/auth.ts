@@ -9,6 +9,7 @@ declare module "next-auth" {
       id: string;
       nextcloudId: string;
       accessToken: string;
+      roles: string[];
     } & DefaultSession["user"];
   }
 
@@ -24,6 +25,8 @@ declare module "next-auth/jwt" {
     id: string;
     nextcloudId: string;
     accessToken: string;
+    idToken: string;
+    roles: string[];
   }
 }
 
@@ -60,16 +63,22 @@ export const {
     },
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
       if (user && account) {
+        const rawRoles = profile?.roles;
+        const roles = Array.isArray(rawRoles) ? (rawRoles as string[]) : [];
+
         token.id = user.id as string;
         token.nextcloudId = user.nextcloudId as string;
         token.accessToken = account.access_token as string;
+        token.idToken = account.id_token as string;
+        token.roles = roles;
 
         await createOrUpdateUser({
           nextcloudId: user.nextcloudId as string,
           email: user.email ?? "",
           name: user.name ?? "",
+          roles,
         });
       }
 
@@ -80,8 +89,21 @@ export const {
         session.user.id = token.id;
         session.user.nextcloudId = token.nextcloudId;
         session.user.accessToken = token.accessToken;
+        session.user.roles = token.roles;
       }
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? message.token : null;
+      if (token?.idToken) {
+        const issuer = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`;
+        const url = new URL(`${issuer}/protocol/openid-connect/logout`);
+        url.searchParams.set("id_token_hint", token.idToken);
+        url.searchParams.set("post_logout_redirect_uri", process.env.AUTH_URL ?? "/");
+        await fetch(url.toString());
+      }
     },
   },
 });

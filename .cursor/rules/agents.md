@@ -260,6 +260,22 @@ The artifact side-panel is powered by several heavyweight UI libraries that must
 
 When making changes around the message/response/artifact area, keep these libraries and their component trees in mind. Removing any of them requires removing the corresponding artifact kind and all components that depend on it.
 
+## Open Tasks
+
+- **Wire up RAG** — `worker/qdrant.ts` has `searchSimilar()` ready. The chat route (`app/(chat)/api/chat/route.ts`) never calls it. Relevant chunks need to be retrieved at the start of the `execute` handler and injected into the system prompt or as context messages before the model call.
+
+- **Fix the system prompt** — `lib/ai/prompts.ts` `regularPrompt` still reads *"You are a friendly assistant!"* — generic Vercel template text. It should describe the actual assistant: German-first, knowledge-base aware, Nextcloud-integrated. At minimum it must instruct the model to respond in German by default.
+
+- **Resolve the dual pricing sources of truth** — `lib/ai/registry.ts` has hardcoded `defaultCost` per provider; `lib/db/schema.ts` has a `model_pricing` table that nothing reads from or writes to. Pick one:
+  - **Keep in code**: drop the `model_pricing` table and `modelPricing` schema export entirely — pricing stays in the registry
+  - **Move to DB**: seed pricing on startup, read it in `lib/ai/cost-tracker.ts` — allows runtime updates without redeploy
+
+- **`titlePrompt` has a stale example** — `lib/ai/prompts.ts` line ~110 still uses *"what's the weather in nyc"* as an example. Update to something relevant.
+
+- **Pull `entitlements.ts` into `lib/constants.ts`** — `lib/ai/entitlements.ts` is a 9-line file exporting a single object. Move `maxMessagesPerHour` into `lib/constants.ts` and delete the file.
+
+- **Wire `worker/embedder.ts` to `lib/ai/providers.ts`** — `worker/embedder.ts` hardcodes `openai.embedding("text-embedding-3-small")`. `lib/ai/providers.ts` already exports `getEmbeddingModel()` returning the same model. The worker already uses `@/` path aliases, so it can import and call `getEmbeddingModel()` directly instead of duplicating the model selection.
+
 ## Coding Conventions
 
 1. **i18n** — all user-facing text must use `next-intl` translation keys. German is the primary language. Never hardcode UI strings.

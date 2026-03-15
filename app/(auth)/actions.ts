@@ -2,8 +2,8 @@
 
 import { signIn, signOut } from "./auth";
 
-export async function loginWithNextcloud() {
-  await signIn("nextcloud", { redirectTo: "/" });
+export async function loginWithKeycloak() {
+  await signIn("keycloak", { redirectTo: "/" });
 }
 
 export async function logout() {

@@ -10,8 +10,8 @@ import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth } from "@/app/(auth)/auth";
 import { trackUsage } from "@/lib/ai/cost-tracker";
-import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import { allowedModelIds } from "@/lib/ai/models";
+import { getEntitlements } from "@/lib/ai/entitlements";
+import { allowedModelIds, chatModelsById } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -73,6 +73,13 @@ export async function POST(request: Request) {
       return new ChatbotError("bad_request:api").toResponse();
     }
 
+    const entitlements = getEntitlements(session.user.roles ?? []);
+    const model = chatModelsById.get(selectedChatModel);
+
+    if (!model || !entitlements.allowedTiers.includes(model.tier)) {
+      return new ChatbotError("forbidden:chat").toResponse();
+    }
+
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       request.headers.get("x-real-ip") ??
@@ -84,7 +91,7 @@ export async function POST(request: Request) {
       differenceInHours: 1,
     });
 
-    if (messageCount > entitlementsByUserType["regular"].maxMessagesPerHour) {
+    if (messageCount > entitlements.maxMessagesPerHour) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
 

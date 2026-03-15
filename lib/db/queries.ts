@@ -49,10 +49,12 @@ export async function createOrUpdateUser({
   nextcloudId,
   email,
   name,
+  roles,
 }: {
   nextcloudId: string;
   email: string;
   name: string;
+  roles: string[];
 }): Promise<User> {
   try {
     const [existing] = await db
@@ -63,7 +65,7 @@ export async function createOrUpdateUser({
     if (existing) {
       const [updated] = await db
         .update(user)
-        .set({ email, name })
+        .set({ email, name, roles })
         .where(eq(user.nextcloudId, nextcloudId))
         .returning();
       return updated;
@@ -71,7 +73,7 @@ export async function createOrUpdateUser({
 
     const [created] = await db
       .insert(user)
-      .values({ nextcloudId, email, name })
+      .values({ nextcloudId, email, name, roles })
       .returning();
     return created;
   } catch (_error) {
