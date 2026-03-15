@@ -76,8 +76,9 @@ export async function createOrUpdateUser({
       .values({ nextcloudId, email, name, roles })
       .returning();
     return created;
-  } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to upsert user");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new ChatbotError("bad_request:database", `Failed to upsert user: ${detail}`);
   }
 }
 
