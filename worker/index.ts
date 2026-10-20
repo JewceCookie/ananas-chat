@@ -21,17 +21,16 @@ import {
   updateKnowledgeSourceStatus,
 } from "@/lib/db/queries";
 import { downloadFile, listDirectory } from "@/lib/nextcloud/client";
-import {
-  chunkText,
-  extractText,
-  isImageType,
-} from "./extractor";
+import { chunkText, extractText, isImageType } from "./extractor";
 import { embedBatch } from "./embedder";
 import { upsertPoints, deletePointsBySource } from "./qdrant";
 
 const POLL_INTERVAL_MS = 5_000;
 
-async function describeImage(buffer: Buffer, mimeType: string): Promise<string> {
+async function describeImage(
+  buffer: Buffer,
+  mimeType: string,
+): Promise<string> {
   const base64 = buffer.toString("base64");
   const { text } = await generateText({
     model: openai("gpt-4o-mini"),
@@ -80,7 +79,7 @@ async function processIndexSource(payload: Record<string, unknown>) {
     for (const file of fileEntries) {
       const filePath = decodeURIComponent(file.filename).replace(
         `/remote.php/dav/files/${username}`,
-        ""
+        "",
       );
 
       const buffer = await downloadFile(accessToken, username, filePath);

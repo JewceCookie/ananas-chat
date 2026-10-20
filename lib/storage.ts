@@ -4,7 +4,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? path.join(process.cwd(), "uploads");
+const UPLOADS_DIR =
+  process.env.UPLOADS_DIR ?? path.join(process.cwd(), "uploads");
 
 export interface StoredFile {
   url: string;
@@ -20,7 +21,7 @@ function getPublicUrl(pathname: string): string {
 export async function putFile(
   filename: string,
   data: ArrayBuffer | Uint8Array,
-  options: { contentType?: string } = {}
+  options: { contentType?: string } = {},
 ): Promise<StoredFile> {
   const safeName = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
   const timestamp = Date.now();
@@ -30,7 +31,8 @@ export async function putFile(
   await mkdir(destDir, { recursive: true });
 
   const fullPath = path.join(destDir, pathname);
-  const buffer = data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data);
+  const buffer =
+    data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data);
   await import("node:fs/promises").then((fs) => fs.writeFile(fullPath, buffer));
 
   return {

@@ -14,7 +14,7 @@ export type ExtractedText = {
 export async function extractText(
   buffer: Buffer,
   mimeType: string,
-  filename: string
+  filename: string,
 ): Promise<string> {
   const mime = mimeType.toLowerCase();
 
@@ -62,7 +62,7 @@ export function isImageType(mimeType: string): boolean {
 export function chunkText(
   text: string,
   chunkSize = 1000,
-  overlap = 200
+  overlap = 200,
 ): string[] {
   const chunks: string[] = [];
   let start = 0;

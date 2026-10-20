@@ -185,7 +185,7 @@ export async function POST(request: Request) {
         });
 
         dataStream.merge(
-          result.toUIMessageStream({ sendReasoning: isReasoningModel })
+          result.toUIMessageStream({ sendReasoning: isReasoningModel }),
         );
 
         if (titlePromise) {
@@ -236,7 +236,7 @@ export async function POST(request: Request) {
         if (
           error instanceof Error &&
           error.message?.includes(
-            "AI Gateway requires a valid credit card on file to service requests"
+            "AI Gateway requires a valid credit card on file to service requests",
           )
         ) {
           return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
@@ -258,7 +258,7 @@ export async function POST(request: Request) {
             await createStreamId({ streamId, chatId: id });
             await streamContext.createNewResumableStream(
               streamId,
-              () => sseStream
+              () => sseStream,
             );
           }
         } catch (_) {
@@ -276,7 +276,7 @@ export async function POST(request: Request) {
     if (
       error instanceof Error &&
       error.message?.includes(
-        "AI Gateway requires a valid credit card on file to service requests"
+        "AI Gateway requires a valid credit card on file to service requests",
       )
     ) {
       return new ChatbotError("bad_request:activate_gateway").toResponse();

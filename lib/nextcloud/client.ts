@@ -27,7 +27,10 @@ export interface NextcloudShare {
 
 function baseUrl(): string {
   const url = process.env.NEXTCLOUD_URL;
-  if (!url) throw new Error("NEXTCLOUD_URL is not configured. Set it to your Nextcloud instance URL.");
+  if (!url)
+    throw new Error(
+      "NEXTCLOUD_URL is not configured. Set it to your Nextcloud instance URL.",
+    );
   return url.replace(/\/$/, "");
 }
 
@@ -49,7 +52,7 @@ function authHeaders(accessToken: string): HeadersInit {
 export async function listDirectory(
   accessToken: string,
   username: string,
-  path: string
+  path: string,
 ): Promise<NextcloudFile[]> {
   const url = `${baseUrl()}/remote.php/dav/files/${encodeURIComponent(username)}${path}`;
 
@@ -89,7 +92,7 @@ export async function listDirectory(
 export async function downloadFile(
   accessToken: string,
   username: string,
-  path: string
+  path: string,
 ): Promise<Buffer> {
   const url = `${baseUrl()}/remote.php/dav/files/${encodeURIComponent(username)}${path}`;
 
@@ -115,7 +118,7 @@ export async function downloadFile(
  * Returns folders that others have shared with this user.
  */
 export async function listSharedWithMe(
-  accessToken: string
+  accessToken: string,
 ): Promise<NextcloudShare[]> {
   const url = `${baseUrl()}/ocs/v2.php/apps/files_sharing/api/v1/shares?shared_with_me=true&format=json`;
 
@@ -149,7 +152,7 @@ export async function listSharedWithMe(
  * List shares the user has created (outgoing shares).
  */
 export async function listMyShares(
-  accessToken: string
+  accessToken: string,
 ): Promise<NextcloudShare[]> {
   const url = `${baseUrl()}/ocs/v2.php/apps/files_sharing/api/v1/shares?format=json`;
 
@@ -185,7 +188,7 @@ export async function listMyShares(
 
 function parseWebDavPropfind(
   xml: string,
-  requestedPath: string
+  requestedPath: string,
 ): NextcloudFile[] {
   const files: NextcloudFile[] = [];
   const responseRegex = /<d:response>([\s\S]*?)<\/d:response>/gi;
@@ -203,7 +206,7 @@ function parseWebDavPropfind(
     const size = Number(
       extractTag(block, "oc:size") ??
         extractTag(block, "d:getcontentlength") ??
-        "0"
+        "0",
     );
     const isCollection = block.includes("<d:collection/>");
     const type: "file" | "directory" = isCollection ? "directory" : "file";

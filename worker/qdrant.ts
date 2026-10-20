@@ -16,7 +16,9 @@ function getClient(): QdrantClient {
 export async function ensureCollection(): Promise<void> {
   const client = getClient();
   const collections = await client.getCollections();
-  const exists = collections.collections.some((c) => c.name === COLLECTION_NAME);
+  const exists = collections.collections.some(
+    (c) => c.name === COLLECTION_NAME,
+  );
 
   if (!exists) {
     await client.createCollection(COLLECTION_NAME, {
@@ -58,7 +60,7 @@ export async function upsertPoints(points: VectorPoint[]): Promise<void> {
 export async function searchSimilar(
   queryVector: number[],
   userId: string,
-  limit = 5
+  limit = 5,
 ): Promise<Array<{ text: string; sourceFile: string; score: number }>> {
   const client = getClient();
 
@@ -84,7 +86,7 @@ export async function searchSimilar(
 }
 
 export async function deletePointsBySource(
-  knowledgeSourceId: string
+  knowledgeSourceId: string,
 ): Promise<void> {
   const client = getClient();
 

@@ -10,7 +10,9 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   if (!locale || !routing.locales.includes(locale as "de" | "en")) {
     const acceptLanguage = (await headers()).get("accept-language") ?? "";
-    const primary = acceptLanguage.split(",").at(0)?.split(";").at(0)?.trim().slice(0, 2) ?? "";
+    const primary =
+      acceptLanguage.split(",").at(0)?.split(";").at(0)?.trim().slice(0, 2) ??
+      "";
     locale = primary === "en" ? "en" : routing.defaultLocale;
   }
 

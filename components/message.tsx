@@ -46,7 +46,7 @@ const PurePreviewMessage = ({
   const [mode, setMode] = useState<"view" | "edit">("view");
 
   const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === "file"
+    (part) => part.type === "file",
   );
 
   useDataStream();
@@ -72,12 +72,12 @@ const PurePreviewMessage = ({
         <div
           className={cn("flex flex-col", {
             "gap-2 md:gap-4": message.parts?.some(
-              (p) => p.type === "text" && p.text?.trim()
+              (p) => p.type === "text" && p.text?.trim(),
             ),
             "w-full":
               (message.role === "assistant" &&
                 (message.parts?.some(
-                  (p) => p.type === "text" && p.text?.trim()
+                  (p) => p.type === "text" && p.text?.trim(),
                 ) ||
                   message.parts?.some((p) => p.type.startsWith("tool-")))) ||
               mode === "edit",

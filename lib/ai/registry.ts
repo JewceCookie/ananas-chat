@@ -46,7 +46,9 @@ export function resolveModel(modelId: string): AnyLanguageModel {
 
   const entry = providerRegistry[providerKey];
   if (!entry) {
-    throw new Error(`Unknown AI provider: "${providerKey}" in model ID "${modelId}"`);
+    throw new Error(
+      `Unknown AI provider: "${providerKey}" in model ID "${modelId}"`,
+    );
   }
 
   const isReasoningModel =
@@ -54,7 +56,7 @@ export function resolveModel(modelId: string): AnyLanguageModel {
     (modelName.includes("reasoning") && !modelName.includes("non-reasoning"));
 
   const base = entry.getModel(
-    isReasoningModel ? modelName.replace(/-thinking$/, "") : modelName
+    isReasoningModel ? modelName.replace(/-thinking$/, "") : modelName,
   );
 
   if (isReasoningModel) {
@@ -69,5 +71,10 @@ export function resolveModel(modelId: string): AnyLanguageModel {
 
 export function getProviderCost(modelId: string): ProviderCost {
   const [providerKey] = modelId.split("/");
-  return providerRegistry[providerKey]?.defaultCost ?? { inputPer1k: 0, outputPer1k: 0 };
+  return (
+    providerRegistry[providerKey]?.defaultCost ?? {
+      inputPer1k: 0,
+      outputPer1k: 0,
+    }
+  );
 }

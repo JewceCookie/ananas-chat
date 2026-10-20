@@ -101,7 +101,10 @@ export const {
         const issuer = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}`;
         const url = new URL(`${issuer}/protocol/openid-connect/logout`);
         url.searchParams.set("id_token_hint", token.idToken);
-        url.searchParams.set("post_logout_redirect_uri", process.env.AUTH_URL ?? "/");
+        url.searchParams.set(
+          "post_logout_redirect_uri",
+          process.env.AUTH_URL ?? "/",
+        );
         await fetch(url.toString());
       }
     },

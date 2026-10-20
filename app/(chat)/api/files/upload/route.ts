@@ -20,7 +20,7 @@ const FileSchema = z.object({
         ].includes(file.type),
       {
         message: "Unsupported file type",
-      }
+      },
     ),
 });
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   } catch (_error) {
     return NextResponse.json(
       { error: "Failed to process request" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

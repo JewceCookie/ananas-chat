@@ -3,7 +3,7 @@ import { getFile } from "@/lib/storage";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ filename: string }> }
+  { params }: { params: Promise<{ filename: string }> },
 ) {
   try {
     const { filename } = await params;
